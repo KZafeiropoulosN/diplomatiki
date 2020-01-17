@@ -14,7 +14,7 @@ SetSerial;  % Set up the serial port connection
 disptic=tic;
 endtic=tic;
 while toc(endtic)<timeout
-    if cnt==0
+    if charactersReceived==0 % We are on the first loop
         tstart=tic;
     end
     if offset==1
@@ -23,14 +23,15 @@ while toc(endtic)<timeout
         limit=1;
     end
     if  s1.BytesAvailable >1  % wait to receive a new character
-        BA(BAcnt)=floor(s1.BytesAvailable/2);
-        %BA(BAcnt)=s1.BytesAvailable;
-        Rbuffer(1:BA(BAcnt))= fread(s1,BA(BAcnt),'int16');
+        BytesToReadFromPort(BAcnt)=floor(s1.BytesAvailable/2);
+        % Store all data from port to a temporary buffer (ReadBuffer) and then start processing
+        ReadBuffer(1:BytesToReadFromPort(BAcnt))= fread(s1,BytesToReadFromPort(BAcnt),'int16');
         tic;
-        for i=1:1:ceil(BA(BAcnt)/DSstep)-limit
-            DataArray(cnt+i)=Rbuffer((i-1)*DSstep+offset);
-                if mod(cnt+i,PowStep)==0
-                    [PossibleQrs(PossibleQrsCnt)]=ActivateWindow(DataArray,cnt+i,PowStep);
+        for i=1:1:ceil(BytesToReadFromPort(BAcnt)/DownsampleStep)-limit
+            DataArray(charactersReceived+i)=ReadBuffer((i-1)*DownsampleStep+offset);
+            %{
+                if mod(charactersReceived+i,PowStep)==0
+                    [PossibleQrs(PossibleQrsCnt)]=ActivateWindow(DataArray,charactersReceived+i,PowStep);
                     AddToCnt=PossibleQrs(PossibleQrsCnt-1)-qrswindow;
                     if PossibleQrs(PossibleQrsCnt)~=0
                         if FirstTimeFlag==0
@@ -60,19 +61,20 @@ while toc(endtic)<timeout
                         PossibleQrsCnt=PossibleQrsCnt+1;
                     end
                 end
-            timedif(cnt+i)=toc;
+            %}
+            timedif(charactersReceived+i)=toc;
             tic;
             while toc<pdelay
             end
         end
         
-        if mod(sum(BA),DSstep)==0
+        if mod(sum(BytesToReadFromPort),DownsampleStep)==0
             offset=1;
         else
-            offset=DSstep-mod(sum(BA),DSstep)+1;
+            offset=DownsampleStep-mod(sum(BytesToReadFromPort),DownsampleStep)+1;
         end
         
-        if cnt>0 && mod(cnt,300000)==0
+        if charactersReceived>0 && mod(charactersReceived,300000)==0
             FiveMinsMean=mean(RRIntervalArray(intervalcnt:length(RRIntervalArray)));
             FiveMinsMeanArray=[FiveMinsMeanArray FiveMinsMean];
             FiveMinsDev=std(RRIntervalArray(intervalcnt:length(RRIntervalArray)));
@@ -80,22 +82,21 @@ while toc(endtic)<timeout
             
             intervalcnt=length(RRIntervalArray);
         end
-        cnt = cnt + i;
+        charactersReceived = charactersReceived + i;
         BAcnt=BAcnt+1;
         endtic=tic;
         
     end
-    
     if toc(disptic)>disptime
         %{
-        if cnt<=10000
-            set(plotHandle,'YData',DataArray(1:cnt));
+        if charactersReceived<=10000
+            set(plotHandle,'YData',DataArray(1:charactersReceived));
         else
-            set(plotHandle,'YData',DataArray(cnt-10000:cnt));
+            set(plotHandle,'YData',DataArray(charactersReceived-10000:charactersReceived));
         end
         snapnow;
         %}
-        fprintf('\n  Ingoing Characters: %d  \n', cnt);
+        %fprintf('\n  Ingoing Characters: %d  \n', charactersReceived);
         disptic=tic;
     end
     
@@ -114,10 +115,10 @@ for i=1:1:length(AdjIntervalArray)
 end
 pNN50=NN50/length(RRIntervalArray);
 
-Nc=cnt;
+Nc=charactersReceived;
 %ecg_data=importdata('D:\Users\Zafeiropoulos7780\MatlabFiles\ecg_1.txt');
-ecg_data=importdata('F:\HMTY\дипкылатийг\Antonako\MATLAB\ecg_1.txt');
-A=downsample(ecg_data(1:DSstep*Nc),5)';
+ecg_data=importdata('.\ecg_1.txt');
+A=downsample(ecg_data(1:DownsampleStep*Nc),DownsampleStep)';
 errcnt=0;
 for i=1:1:Nc
     dif(i)=DataArray(i)-A(i);

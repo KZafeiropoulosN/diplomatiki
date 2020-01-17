@@ -5,7 +5,7 @@ delete(instrfind);
 disp('Starting the Characters Generator Application . . . . ');
 
 %ecg_data=importdata('D:\Users\Zafeiropoulos7780\MatlabFiles\ecg_1.txt');
-ecg_data=importdata('C:\Users\Φιλοθέη\Desktop\ΚΥΡΙΑΚΟΣ\Antonako\MATLAB\ecg_1.txt');
+ecg_data=importdata('.\ecg_1.txt');
 
 %ecg_data=int16(ecg_data);
 Nc=length(ecg_data);        % Πλήθος χαρακτηρων προς μετάδοση
@@ -29,7 +29,7 @@ disp(' ');
 cnt = 0;
 disptic=tic;
 tic;
-while cnt<1577000
+while cnt<20000
     if s1.BytesToOutput <= Nbuffer-2*packet
             fwrite(s1,ecg_data(cnt+1:cnt+packet),'int16');          
             cnt = cnt + packet;

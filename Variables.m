@@ -5,18 +5,18 @@ disp('Initializing Variables . . . . . ');
 Fs=5000;
 Nbuffer = 10000;            % Rx buffer length
 pdelay=0.000198;            % Ελάχιστος χρόνος καταγραφής στοιχείου στον DataArray
-Rbuffer=zeros(1,5000,'int16');
+ReadBuffer=zeros(1,5000,'int16');
 DataArray=zeros(1,2000,'double');
 disptime=1;                 % Χρόνος εμφάνισης της κατάστασης λήψης
 timeout=10;                 % Χρόνος αναμονής για τη λήξη της διαδικασίας
 BAcnt=1;
-cnt = 0;
+charactersReceived = 0;
 qrswindow=3000;
 PossibleQrsCnt=2;
 
 
-DSstep=5;
-DSFs=Fs/DSstep;
+DownsampleStep=1;
+DSFs=Fs/DownsampleStep;
 PowStep=30;
 
 offset=1;
