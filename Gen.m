@@ -8,11 +8,11 @@ disp('Starting the Characters Generator Application . . . . ');
 ecg_data=importdata('.\ecg_1.txt');
 
 %ecg_data=int16(ecg_data);
-Nc=length(ecg_data);        % Πλήθος χαρακτηρων προς μετάδοση
-packet=1000;                % Μέγεθος πακέτου
-Nbuffer = 4000;             % Τx buffer length
-pdelay = 0.035;             % Ελάχιστος χρόνος μεταξύ διαδοχικών πακέτων  [sec]
-disptime=0.1;               % Χρόνος εμφάνισης της κατάστασης μετάδοσης
+Nc=length(ecg_data);        % amount of character to send
+packet=1000;                % size of each packet
+Nbuffer = 4000;             % Tx buffer length
+pdelay = 0.035;             % minimum time between two packets
+disptime=0.1;               % Time interval between displaying in graph
 
 %%
 disp('Opening the RS232 port . . . . . ');
