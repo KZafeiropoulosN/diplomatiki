@@ -116,8 +116,7 @@ end
 pNN50=NN50/length(RRIntervalArray);
 
 Nc=charactersReceived;
-%ecg_data=importdata('D:\Users\Zafeiropoulos7780\MatlabFiles\ecg_1.txt');
-ecg_data=importdata('.\ecg_1.txt');
+ecg_data=importdata('ecg_1.txt');
 A=downsample(ecg_data(1:DownsampleStep*Nc),DownsampleStep)';
 errcnt=0;
 for i=1:1:Nc

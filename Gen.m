@@ -1,11 +1,24 @@
+%% Initialising the required variables for Generator Application
+% Data values of the ecg signal are imported from a text file and stored
+% in an array. The values have been created by sampling the analog ecg
+% with a sampling frequency of 5kHz (5000 samples per second).
+% A serial port is then initialised. We expect data values to be [-500, 500]
+% aproximately. So we use int16 as data precision [-32768, 32767] in fwrite.
+% Thus each value is sent as two bytes (16bits) through serial port.
+% Serial port sends data in data frames. Each data frame contains 10 bits
+% (8 data bits, 1 start bit and 1 stop bit). So in our communication
+% each data value of the ecg signal is sent in two frames, thus we need to
+% send 20 bits in order for the data value to be transmitted.
+% We set Baud Rate to 115200 bauds. Thus we can send 115200/20=5760
+% data values per second.
+
 clc;
 clear all;
 close all;
 delete(instrfind);
 disp('Starting the Characters Generator Application . . . . ');
 
-%ecg_data=importdata('D:\Users\Zafeiropoulos7780\MatlabFiles\ecg_1.txt');
-ecg_data=importdata('.\ecg_1.txt');
+ecg_data=importdata('ecg_1.txt');
 
 %ecg_data=int16(ecg_data);
 Nc=length(ecg_data);        % amount of character to send
