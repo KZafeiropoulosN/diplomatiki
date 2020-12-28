@@ -3,8 +3,9 @@ Nbuffer = 10000;   % Rx buffer length
 
 disp('Opening the RS232 port . . . . . ');
 s1 = serial('COM4','BaudRate',115200,'Terminator', '');
-set(s1, 'FlowControl', 'none');
 set(s1, 'InputBufferSize', Nbuffer);
+s1.BytesAvailableFcnMode = 'byte';
+s1.BytesAvailableFcn = @(~,~)testF(s1);
 fopen(s1)
 disp('RS232 port activated');
 disp(' ');
