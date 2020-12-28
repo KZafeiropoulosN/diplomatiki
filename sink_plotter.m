@@ -14,7 +14,7 @@ SetSerial;  % Set up the serial port connection
 disptic=tic;
 endtic=tic;
 while toc(endtic)<timeout
-    if charactersReceived==0 % We are on the first loop
+    if length(DataArray)==0 % We are on the first iteration
         tstart=tic;
     end
     if offset==1
@@ -24,14 +24,15 @@ while toc(endtic)<timeout
     end
     if  s1.BytesAvailable >1  % wait to receive a new character
         BytesToReadFromPort=floor(s1.BytesAvailable/2);
-        % Store all data from port to a temporary buffer (ReadBuffer) and then start processing
+        % Store all data from port to a temporary buffer and then start processing
         ReadBuffer(1:BytesToReadFromPort)= fread(s1,BytesToReadFromPort,'int16');
         tic;
         for i=1:1:ceil(BytesToReadFromPort/DownsampleStep)-limit
-            DataArray(charactersReceived+i)=ReadBuffer((i-1)*DownsampleStep+offset);
+            % append next value at the end of the downsampled data array
+            DataArray(end + 1) = ReadBuffer((i-1)*DownsampleStep+offset);
             %{
-                if mod(charactersReceived+i,PowStep)==0
-                    [PossibleQrs(PossibleQrsCnt)]=ActivateWindow(DataArray,charactersReceived+i,PowStep);
+                if mod(length(DataArray),PowStep)==0
+                    [PossibleQrs(PossibleQrsCnt)]=ActivateWindow(DataArray,length(DataArray),PowStep);
                     AddToCnt=PossibleQrs(PossibleQrsCnt-1)-qrswindow;
                     if PossibleQrs(PossibleQrsCnt)~=0
                         if FirstTimeFlag==0
@@ -62,7 +63,7 @@ while toc(endtic)<timeout
                     end
                 end
             %}
-            timedif(charactersReceived+i)=toc;
+            timedif(end + 1)=toc;
             tic;
             while toc<pdelay
             end
@@ -72,32 +73,31 @@ while toc(endtic)<timeout
         else
             offset=DownsampleStep-mod(s1.ValuesReceived,DownsampleStep)+1;
         end
-        
-        if charactersReceived>0 && mod(charactersReceived,300000)==0
+
+        if length(DataArray)>0 && mod(length(DataArray),300000)==0
             FiveMinsMean=mean(RRIntervalArray(intervalcnt:length(RRIntervalArray)));
             FiveMinsMeanArray=[FiveMinsMeanArray FiveMinsMean];
             FiveMinsDev=std(RRIntervalArray(intervalcnt:length(RRIntervalArray)));
             FiveMinsDevArray=[FiveMinsDevArray FiveMinsDev];
-            
+
             intervalcnt=length(RRIntervalArray);
         end
-        charactersReceived = charactersReceived + i;
         endtic=tic;
-        
+
     end
     if toc(disptic)>disptime
-        %{
-        if charactersReceived<=10000
-            set(plotHandle,'YData',DataArray(1:charactersReceived));
+
+        if length(DataArray)<=10000
+            set(plotHandle,'YData',DataArray); % draw all
         else
-            set(plotHandle,'YData',DataArray(charactersReceived-10000:charactersReceived));
+            set(plotHandle,'YData',DataArray(end-10000 +1:end)); % draw last 10000
         end
         snapnow;
-        %}
-        %fprintf('\n  Ingoing Characters: %d  \n', charactersReceived);
+
+        fprintf('\n  Ingoing Characters: %d  \n', length(DataArray));
         disptic=tic;
     end
-    
+
 end
 Ttotal=toc(tstart);
 
@@ -113,7 +113,7 @@ for i=1:1:length(AdjIntervalArray)
 end
 pNN50=NN50/length(RRIntervalArray);
 
-Nc=charactersReceived;
+Nc=length(DataArray);
 ecg_data=importdata('ecg_1.txt');
 A=downsample(ecg_data(1:DownsampleStep*Nc),DownsampleStep)';
 errcnt=0;

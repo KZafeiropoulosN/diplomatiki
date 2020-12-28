@@ -6,10 +6,10 @@ Fs=5000;
 Nbuffer = 10000;            % Rx buffer length
 pdelay=0.000198;            % Minimum time of writing a character in DataArray
 ReadBuffer=zeros(1,5000,'int16');
-DataArray=zeros(1,2000,'double');
+DataArray=[];
+timedif=[];
 disptime=1;                 % Time interval between showing the status of receive
 timeout=10;                 % Time without receiving data the the program will end
-charactersReceived = 0;
 qrswindow=3000;
 PossibleQrsCnt=2;
 
