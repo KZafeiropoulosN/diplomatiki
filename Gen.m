@@ -29,9 +29,7 @@ disptime=0.1;               % Time interval between displaying in graph
 
 %%
 disp('Opening the RS232 port . . . . . ');
-s1 = serial('COM3','BaudRate',115200,'Parity','none', 'Terminator', '');
-set(s1, 'FlowControl', 'none');
-set(s1, 'InputBufferSize', Nbuffer);
+s1 = serial('COM3','BaudRate',115200,'Terminator', '');
 set(s1, 'OutputBufferSize', Nbuffer);
 
 fopen(s1)

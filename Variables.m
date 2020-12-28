@@ -3,9 +3,8 @@
 disp('Initializing Variables . . . . . ');
 
 Fs=5000;
-Nbuffer = 10000;            % Rx buffer length
-pdelay=0.000198;            % Minimum time of writing a character in DataArray
-ReadBuffer=zeros(1,5000,'int16');
+pdelay=0.000198;   % Minimum time of writing a character in DataArray
+ReadBuffer=[];
 DataArray=[];
 timedif=[];
 disptime=1;                 % Time interval between showing the status of receive
