@@ -9,7 +9,6 @@ ReadBuffer=zeros(1,5000,'int16');
 DataArray=zeros(1,2000,'double');
 disptime=1;                 % Time interval between showing the status of receive
 timeout=10;                 % Time without receiving data the the program will end
-BAcnt=1;
 charactersReceived = 0;
 qrswindow=3000;
 PossibleQrsCnt=2;

@@ -23,11 +23,11 @@ while toc(endtic)<timeout
         limit=1;
     end
     if  s1.BytesAvailable >1  % wait to receive a new character
-        BytesToReadFromPort(BAcnt)=floor(s1.BytesAvailable/2);
+        BytesToReadFromPort=floor(s1.BytesAvailable/2);
         % Store all data from port to a temporary buffer (ReadBuffer) and then start processing
-        ReadBuffer(1:BytesToReadFromPort(BAcnt))= fread(s1,BytesToReadFromPort(BAcnt),'int16');
+        ReadBuffer(1:BytesToReadFromPort)= fread(s1,BytesToReadFromPort,'int16');
         tic;
-        for i=1:1:ceil(BytesToReadFromPort(BAcnt)/DownsampleStep)-limit
+        for i=1:1:ceil(BytesToReadFromPort/DownsampleStep)-limit
             DataArray(charactersReceived+i)=ReadBuffer((i-1)*DownsampleStep+offset);
             %{
                 if mod(charactersReceived+i,PowStep)==0
@@ -67,11 +67,10 @@ while toc(endtic)<timeout
             while toc<pdelay
             end
         end
-        
-        if mod(sum(BytesToReadFromPort),DownsampleStep)==0
+        if mod(s1.ValuesReceived,DownsampleStep)==0
             offset=1;
         else
-            offset=DownsampleStep-mod(sum(BytesToReadFromPort),DownsampleStep)+1;
+            offset=DownsampleStep-mod(s1.ValuesReceived,DownsampleStep)+1;
         end
         
         if charactersReceived>0 && mod(charactersReceived,300000)==0
@@ -83,7 +82,6 @@ while toc(endtic)<timeout
             intervalcnt=length(RRIntervalArray);
         end
         charactersReceived = charactersReceived + i;
-        BAcnt=BAcnt+1;
         endtic=tic;
         
     end
@@ -167,3 +165,5 @@ fprintf('\n %4.3f percent chararacters came in less than 1.99e-04 sec',smallcnt/
 fprintf('\n %4.3f percent chararacters came between 1.99e-04 sec and 2.01e-04',goodcnt/Nc);
 fprintf('\n %4.3f percent chararacters came in more than 2.01e-04 sec\n\n',bigcnt/Nc);
 disp(' . . . .  Ending the Characters Sink Application.\n');
+
+%function readFromPort
