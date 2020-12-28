@@ -8,7 +8,7 @@ figureHandle = figure('NumberTitle','off',...
 
 %hold on;
 %subplot(2,1,1);
-plotHandle = plot(DataArray,'Marker','.','LineWidth',1,'Color',[0.1328    0.5430    0.1328]);
+plotHandle = plot(0,'Marker','.','LineWidth',1,'Color',[0.1328    0.5430    0.1328]);
 axis([0 5000 -600 600]);
 
 set(gca,...
