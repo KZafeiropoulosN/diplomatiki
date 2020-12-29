@@ -6,23 +6,9 @@ disp('Starting the Characters Sink Application . . . . ');
 
 global flag2
 flag2=0;
-
 Variables;  % Initialize Variables needed
 SetFigure;  % Set up the figure
-%SetSerial;  % Set up the serial port connection
-
-Nbuffer = 10000;   % Rx buffer length
-
-disp('Opening the RS232 port . . . . . ');
-s1 = serial('COM4','BaudRate',115200,'Terminator', '');
-set(s1, 'InputBufferSize', Nbuffer);
-s1.BytesAvailableFcnCount = 2000;
-s1.BytesAvailableFcnMode = 'byte';
-s1.BytesAvailableFcn = @(~,~)testF(s1);
-fopen(s1)
-disp('RS232 port activated');
-disp(' ');
-
+SetSerial;  % Set up the serial port connection
 
 %%
 disptic=tic;
@@ -180,6 +166,4 @@ fprintf('\n %4.3f percent chararacters came between 1.99e-04 sec and 2.01e-04',g
 fprintf('\n %4.3f percent chararacters came in more than 2.01e-04 sec\n\n',bigcnt/Nc);
 disp(' . . . .  Ending the Characters Sink Application.\n');
 
-function testF(s)
-    fprintf('\n  BytesAvailableFcn callback called with %d bytes available', s.BytesAvailable);
-end
+%function readFromPort
