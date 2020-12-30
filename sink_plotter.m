@@ -5,13 +5,11 @@ close all;
 delete(instrfind);
 disp('Starting the Characters Sink Application . . . . ');
 DataArray=[];      % Array of data received
-qrs=[];
+qrs=[];            % Array of qrs found
 [DataArray, qrs] = start(DataArray, qrs);
 
 function [DataArray, qrs] = start(DataArray, qrs)
   %% Initialize Variables needed
-  global flag2
-  flag2=0;
   disp('Initializing Variables . . . . . ');
 
   pdelay=0.000198;   % Minimum time of writing a character in DataArray
