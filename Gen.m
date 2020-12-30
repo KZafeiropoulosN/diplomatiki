@@ -40,7 +40,7 @@ disp(' ');
 cnt = 0;
 disptic=tic;
 tic;
-while cnt<20000
+while cnt<100000
     if s1.BytesToOutput <= Nbuffer-2*packet
             fwrite(s1,ecg_data(cnt+1:cnt+packet),'int16');          
             cnt = cnt + packet;
