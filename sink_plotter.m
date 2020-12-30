@@ -28,7 +28,7 @@ function [DataArray, qrs] = start(DataArray, qrs)
   DownsampleStep = Fs/DownsampleFs; % Step to downsample based on original signal frequency
   PowStep=DownsampleFs/10;    % The window in which we check for possible QRS complexes by 
                               % computing the power of the signal. It should be 100ms
-  qrswindow=4*DownsampleFs;   % A sufficient amount of data (4 second) in order to check for QRS
+  qrswindow=2*DownsampleFs;   % A sufficient amount of data (4 second) in order to check for QRS
 
   offset=1;
   FirstTimeFlag=1;
@@ -256,6 +256,7 @@ function [DataArray, qrs] = start(DataArray, qrs)
   disp(' . . . .  Ending the Characters Sink Application.\n');
 
   function output = isQRSPossible(data)
+    % Check if the power of the provided data is above threshold
     output = rms(data)^2 > 10000;
   end
 
@@ -265,7 +266,7 @@ function [DataArray, qrs] = start(DataArray, qrs)
     ReadBuffer = downsample(ReadBuffer, DownsampleStep); % Downsample to 500Hz 
     DataArray = [DataArray ReadBuffer]; % Append received values to previously received data
 
-    if length(DataArray) < 2*DownsampleFs % We need at least 2 second of information to run pan_tomkins
+    if length(DataArray) < qrswindow % We need at least 2 second of information to run pan_tomkins
       return
     end
 
@@ -274,33 +275,35 @@ function [DataArray, qrs] = start(DataArray, qrs)
 
       if isQRSPossible(DataArray(currentDataIndex - PowStep:currentDataIndex))
         samlplesToProcess = getSamplesToProcess;
-        [~,qrs_i_raw]=pan_tompkin(samlplesToProcess,DownsampleFs,0);
+        [~,qrs_i_raw]=pan_tompkin(samlplesToProcess, DownsampleFs, 0);
         qrs = getQRSIndexInDataArray(qrs);
       end
     end
-    
+
     function [qrs] = getQRSIndexInDataArray(qrs)
       % Gets the current qrs array and adds the newly found indexes.
       % The indexes should represent the right position on the DataArray.
  
       % if it is the first time we return all found indexes
-      if length(DataArray) < qrswindow
-        qrs = qrs_i_raw;
+      if isempty(qrs)
+        qrs = qrs_i_raw + currentDataIndex - qrswindow;
         return 
       end
-      disp(currentDataIndex)
-      % else append the last value tranformed to the right index
-      qrs(end + 1) = qrs_i_raw(end) + currentDataIndex - qrswindow;
+
+      % Transform qrs index to the corresponding DataArray index
+      qrs_i_raw = qrs_i_raw + currentDataIndex - qrswindow;
+      % make sure this is a new qrs by comparing its value
+      % with the latest found qrs
+      if abs(qrs_i_raw(end)-qrs(end)) > PowStep
+        disp(qrs)
+        qrs_i_raw(end)
+        qrs(end + 1) = qrs_i_raw(end); % append the last found qrs to the ones we have
+      end
     end
-    
+
     function [samlplesToProcess] = getSamplesToProcess
       % Returns a slice of the DataArray to process with pan_tomkins
-      % If we are at the beginning of the iteration (we don't have )
-      samlplesToProcess = DataArray;
-      if length(DataArray) > qrswindow
-        samlplesToProcess = DataArray(currentDataIndex - qrswindow:currentDataIndex); % Get the window for which to run pan_tomkins
-      end 
-
+      samlplesToProcess = DataArray(currentDataIndex - qrswindow:currentDataIndex); % Get the window for which to run pan_tomkins
     end % end of function getSamplesToProcess
   end % end of function onBytesAvailable
 end % end of function start

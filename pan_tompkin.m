@@ -1,4 +1,4 @@
-unction [qrs_amp_raw,qrs_i_raw,delay]=pan_tompkin(ecg,fs,gr)
+function [qrs_amp_raw,qrs_i_raw,delay]=pan_tompkin(ecg,fs,gr)
 
 %% function [qrs_amp_raw,qrs_i_raw,delay]=pan_tompkin(ecg,fs)
 % Complete implementation of Pan-Tompkins algorithm
