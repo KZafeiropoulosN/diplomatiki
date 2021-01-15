@@ -40,8 +40,6 @@ function [DataArray, qrs] = start(DataArray, qrs)
       'Name','Electrocardiography',...
       'Color',[0 0 0]);
 
-  %hold on;
-  %subplot(2,1,1);
   plotHandle = plot(0,'Marker','.','LineWidth',1,'Color',[0.1328    0.5430    0.1328]);
   axis([0 10*DownsampleFs -600 600]);
 

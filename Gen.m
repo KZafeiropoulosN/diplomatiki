@@ -27,7 +27,7 @@ Nc = 50100;
 packet=1000;                % size of each packet
 Nbuffer = 2000;             % Tx buffer length
 pdelay = 0.2;               % minimum time between two packets
-disptime=0.1;               % Time interval between displaying in graph
+disptime=0.1;               % Time interval between displaying outgoing characters
 
 %%
 disp('Opening the RS232 port . . . . . ');
