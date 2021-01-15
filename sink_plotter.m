@@ -11,35 +11,17 @@ qrs=[];            % Array of qrs found
 function [DataArray, qrs] = start(DataArray, qrs)
   %% Initialize Variables needed
   disp('Initializing Variables . . . . . ');
-
-  pdelay=0.000198;   % Minimum time of writing a character in DataArray
   ReadBuffer=[];     % Temporary byffer in order to read data and downsample
                      % before we store them in DataArray
-  
-  timedif=[];
   disptime=0.1;      % Time interval between plotting data
   timeout=10;        % Time without receiving data that the program will end
-  PossibleQrsCnt=2;
 
   Fs = 5000;
   DownsampleFs = 500;               % Target frequency to provide to pan_tomkins algorithm
   DownsampleStep = Fs/DownsampleFs; % Step to downsample based on original signal frequency
   PowStep=DownsampleFs/10;    % The window in which we check for possible QRS complexes by 
                               % computing the power of the signal. It should be 100ms
-  qrswindow=2*DownsampleFs;   % A sufficient amount of data (4 second) in order to check for QRS
-
-  offset=1;
-  FirstTimeFlag=1;
-
-
-
-  bigcnt=0;
-  smallcnt=0;
-  goodcnt=0;
-
-
-  window=40000;
-  qrsfile=[];
+  qrswindow=2*DownsampleFs;   % A sufficient amount of data (2 seconds) in order to check for QRS
 
   RRIntervalArray=[];
   AdjIntervalArray=[];
@@ -61,7 +43,7 @@ function [DataArray, qrs] = start(DataArray, qrs)
   %hold on;
   %subplot(2,1,1);
   plotHandle = plot(0,'Marker','.','LineWidth',1,'Color',[0.1328    0.5430    0.1328]);
-  axis([0 40000 -600 600]);
+  axis([0 10*DownsampleFs -600 600]);
 
   set(gca,...
       'XColor', [0.9375 1 1],...
@@ -78,7 +60,7 @@ function [DataArray, qrs] = start(DataArray, qrs)
   
   
   %% Set up the serial port connection
-  Nbuffer = 10000;   % Rx buffer length
+  Nbuffer = 2000;   % Rx buffer length
 
   disp('Opening the RS232 port . . . . . ');
   s1 = serial('COM4','BaudRate',115200,'InputBufferSize', Nbuffer, 'Terminator', '');
@@ -170,10 +152,10 @@ function [DataArray, qrs] = start(DataArray, qrs)
       %}
       if toc(disptic)>disptime
 
-          if length(DataArray)<=40000
+          if length(DataArray)<=10*DownsampleFs
               set(plotHandle,'YData',DataArray); % draw all
           else
-              set(plotHandle,'YData',DataArray(end-40000 +1:end)); % draw last 10000
+              set(plotHandle,'YData',DataArray(end-10*DownsampleFs +1:end)); % draw last 10 seconds
           end
           snapnow;
 
@@ -259,20 +241,25 @@ function [DataArray, qrs] = start(DataArray, qrs)
   end
 
   function onBytesAvailable(src, isQRSPossible, pan_tompkin)
+    if ~src.BytesAvailable
+      return
+    end
     SamplesToReadFromPort=floor(src.BytesAvailable/2);
     ReadBuffer = fread(src, SamplesToReadFromPort, 'int16')'; % Read values
     ReadBuffer = downsample(ReadBuffer, DownsampleStep); % Downsample to 500Hz 
     DataArray = [DataArray ReadBuffer]; % Append received values to previously received data
 
-    if length(DataArray) < qrswindow % We need at least 2 second of information to run pan_tomkins
+    if length(DataArray) < qrswindow % We need at least 2 seconds of information to run pan_tomkins
       return
     end
 
     for i=1:PowStep:length(ReadBuffer) % Iterate on the newly received data with 100ms step
       currentDataIndex = length(DataArray) - length(ReadBuffer) + i;
 
+      % We check the previous 100ms of data
       if isQRSPossible(DataArray(currentDataIndex - PowStep:currentDataIndex))
-        samlplesToProcess = getSamplesToProcess;
+        % We provide the last 2 seconds of data to pan_tompkin
+        samlplesToProcess = DataArray(currentDataIndex - qrswindow:currentDataIndex);
         [~,qrs_i_raw]=pan_tompkin(samlplesToProcess, DownsampleFs, 0);
         qrs = getQRSIndexInDataArray(qrs);
       end
@@ -293,15 +280,8 @@ function [DataArray, qrs] = start(DataArray, qrs)
       % make sure this is a new qrs by comparing its value
       % with the latest found qrs
       if abs(qrs_i_raw(end)-qrs(end)) > PowStep
-        disp(qrs)
-        qrs_i_raw(end)
         qrs(end + 1) = qrs_i_raw(end); % append the last found qrs to the ones we have
       end
     end
-
-    function [samlplesToProcess] = getSamplesToProcess
-      % Returns a slice of the DataArray to process with pan_tomkins
-      samlplesToProcess = DataArray(currentDataIndex - qrswindow:currentDataIndex); % Get the window for which to run pan_tomkins
-    end % end of function getSamplesToProcess
   end % end of function onBytesAvailable
 end % end of function start
