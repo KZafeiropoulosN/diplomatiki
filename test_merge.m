@@ -9,28 +9,30 @@ ecg_data=importdata('ecg_1.txt');
 Fs = 5000;
 ReceivedData = [];
 qrs = [];
-[ReceivedData, qrs] = start(ecg_data, Fs, ReceivedData, qrs);
+RRIntervalArray = [];
+FiveMinsMeanArray = [];
+[ReceivedData, qrs, RRIntervalArray] = start(ecg_data, Fs, ReceivedData, qrs, RRIntervalArray);
 
+SDNN=std(RRIntervalArray);
+%{
 validation = (downsample(ecg_data(1:10000),10))';
-
 for i=1:1:length(ReceivedData)
   dif = ReceivedData(i) - validation(i);
   if dif ~= 0 
     disp('Error found %d', i);
   end
 end
-
-function [DataArray, qrs] = start(ecg_data, Fs, DataArray, qrs)
+%}
+function [DataArray, qrs, RRIntervalArray] = start(ecg_data, Fs, DataArray, qrs, RRIntervalArray)
   %% Initialise variables and ports
   %Nc=length(ecg_data);       % amount of character to send
   Nc = 200000;
   packet=1000;                % size of each packet
   s1OutpuBuffer = 2000;       % Tx buffer length
   s2InputBuffer = 2000;       % Rx buffer length
-  pdelay = 0.2;               % minimum time between two packets
   disptime=0.1;               % Time interval between displaying in graph
-  DownsampleFs = 500;
-  DownsampleStep = Fs/DownsampleFs;
+  DownsampleFs = 500;         % We are downsampling data to that frequency
+                              % before sending them to pan_tomkins
   qrswindow=2*DownsampleFs;   % A sufficient amount of data (2 seconds) in order to check for QRS
   PowStep=DownsampleFs/10;    % The window in which we check for possible QRS complexes by 
                               % computing the power of the signal. It should be 100ms
@@ -40,7 +42,7 @@ function [DataArray, qrs] = start(ecg_data, Fs, DataArray, qrs)
   s2 = serial('COM4','BaudRate',115200,'InputBufferSize', s2InputBuffer);
   s2.BytesAvailableFcnMode = 'byte';
   s2.BytesAvailableFcnCount = 2000;
-  s2.BytesAvailableFcn = @(src, ~)onBytesAvailable(src, @pan_tompkin, DownsampleStep, qrswindow, PowStep);
+  s2.BytesAvailableFcn = @(src, ~)onBytesAvailable(src, @pan_tompkin, DownsampleFs, qrswindow, PowStep);
   fopen(s1); fopen(s2); 
   
   disp('RS232 receiver and transmitter ports activated');
@@ -101,14 +103,14 @@ function [DataArray, qrs] = start(ecg_data, Fs, DataArray, qrs)
   disp('RS232 ports deactivated');
   disp(' ');
   %% Callback to receive and process data
-  function onBytesAvailable(src, pan_tompkin, DownsampleStep, qrswindow, PowStep)
+  function onBytesAvailable(src, pan_tompkin, DownsampleFs, qrswindow, PowStep)
     % Just to be sure
     if ~src.BytesAvailable
       return
     end
     SamplesToReadFromPort=floor(src.BytesAvailable/2);
     ReadBuffer = fread(src, SamplesToReadFromPort, 'int16')';
-    ReadBuffer = downsample(ReadBuffer, DownsampleStep); % Downsample to 500Hz 
+    ReadBuffer = downsample(ReadBuffer, Fs/DownsampleFs); % Downsample to 500Hz 
     DataArray = [DataArray ReadBuffer]; % Append received values to previously received data
     fprintf('\nCharacters received: %d\n', src.ValuesReceived);
     
@@ -122,7 +124,11 @@ function [DataArray, qrs] = start(ecg_data, Fs, DataArray, qrs)
         % We provide the last 2 seconds of data to pan_tompkin
         samlplesToProcess = DataArray(currentDataIndex - qrswindow:currentDataIndex);
         [~,qrs_i_raw]=pan_tompkin(samlplesToProcess, DownsampleFs, 0);
-        qrs = getQRSIndexInDataArray(qrs, qrs_i_raw, currentDataIndex, qrswindow, PowStep);
+        qrs = getQRSIndexInDataArray(qrs, qrs_i_raw, currentDataIndex, qrswindow, PowStep, DownsampleFs);
+      end
+      
+      if currentDataIndex - fiveMinWindowCnt*fiveMinWindowLength >= 0
+        
       end
     end
     
@@ -131,13 +137,16 @@ function [DataArray, qrs] = start(ecg_data, Fs, DataArray, qrs)
       output = rms(data)^2 > 10000;
     end
     
-    function [qrs] = getQRSIndexInDataArray(qrs, qrs_i_raw, currentDataIndex, qrswindow, PowStep)
+    function [qrs] = getQRSIndexInDataArray(qrs, qrs_i_raw, currentDataIndex, qrswindow, PowStep, DownsampleFs)
       % Gets the current qrs array and adds the newly found indexes.
       % The indexes should represent the right position on the DataArray.
  
       % if it is the first time we return all found indexes
       if isempty(qrs)
         qrs = qrs_i_raw + currentDataIndex - qrswindow;
+        for j=1:1:length(qrs)-1
+          RRIntervalArray(j)=(qrs(j+1)-qrs(j))/DownsampleFs;
+        end
         return 
       end
 
@@ -147,6 +156,8 @@ function [DataArray, qrs] = start(ecg_data, Fs, DataArray, qrs)
       % with the latest found qrs
       if abs(qrs_i_raw(end)-qrs(end)) > PowStep
         qrs(end + 1) = qrs_i_raw(end); % append the last found qrs to the ones we have
+        RRInterval = (qrs(end)-qrs(end - 1))/DownsampleFs;
+        RRIntervalArray = [ RRIntervalArray RRInterval ];
       end
     end
   end
