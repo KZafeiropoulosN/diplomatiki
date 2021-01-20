@@ -1,3 +1,18 @@
+%% Initialising the required variables for Generator Application
+% Data values of the ecg signal are imported from a text file and stored
+% in an array. The values have been created by sampling the analog ecg
+% with a sampling frequency of 5kHz (5000 samples per second).
+% A serial port is then initialised. We expect data values to be [-500, 500]
+% aproximately. So we use int16 as data precision [-32768, 32767] in fwrite.
+% Thus each value is sent as two bytes (16bits) through serial port.
+% Serial port sends data in data frames. Each data frame contains 10 bits
+% (8 data bits, 1 start bit and 1 stop bit). So in our communication
+% each data value of the ecg signal is sent in two frames, thus we need to
+% send 20 bits in order for the data value to be transmitted.
+% We set Baud Rate to 115200 bauds. Thus we can send up to 115200/20=5760
+% data values per second.
+% In each write operation we send 1000 data.
+
 %%
 clc;
 clear all;
@@ -11,22 +26,32 @@ ReceivedData = [];
 qrs = [];
 RRIntervalArray = [];
 FiveMinsMeanArray = [];
-[ReceivedData, qrs, RRIntervalArray] = start(ecg_data, Fs, ReceivedData, qrs, RRIntervalArray);
+FiveMinsDeviationArray = [];
+SuccessiveIntervalArray = [];
+NN50 = 0;                         % The number of RR intervals differing by > 50ms from the preceding interval
+[ReceivedData, qrs, RRIntervalArray, FiveMinsMeanArray, FiveMinsDeviationArray] = start(...
+  ecg_data, Fs, ReceivedData, qrs, RRIntervalArray, FiveMinsMeanArray, FiveMinsDeviationArray);
 
-SDNN=std(RRIntervalArray);
-%{
-validation = (downsample(ecg_data(1:10000),10))';
-for i=1:1:length(ReceivedData)
-  dif = ReceivedData(i) - validation(i);
-  if dif ~= 0 
-    disp('Error found %d', i);
+for i=2:1:length(RRIntervalArray)
+  SuccessiveInterval=RRIntervalArray(i)-RRIntervalArray(i-1);
+  SuccessiveIntervalArray=[SuccessiveIntervalArray SuccessiveInterval];
+  
+  if abs(SuccessiveInterval)*1000 > 50
+    NN50 = NN50 + 1;
   end
 end
-%}
-function [DataArray, qrs, RRIntervalArray] = start(ecg_data, Fs, DataArray, qrs, RRIntervalArray)
+
+SDNN = std(RRIntervalArray);                     % Standard deviation of all normal to normal RR intervals
+SDANN = std(FiveMinsMeanArray);                  % Standard deviation of 5-minute average RR intervals
+ASDNN = mean(FiveMinsDeviationArray);            % Mean of the standard deviations of all RR intervals fow all 5 minute segments
+rMSSD = sqrt(mean(SuccessiveIntervalArray.^2));  % Square root of the mean of the squares of successive RR interval differences
+pNN50 = (NN50/length(RRIntervalArray))*100;      % The perventage of RR intervals differing by > 50ms from the preceding interval
+
+function [DataArray, qrs, RRIntervalArray, FiveMinsMeanArray, FiveMinsDeviationArray] = start(...
+  ecg_data, Fs, DataArray, qrs, RRIntervalArray, FiveMinsMeanArray, FiveMinsDeviationArray)
   %% Initialise variables and ports
   %Nc=length(ecg_data);       % amount of character to send
-  Nc = 200000;
+  Nc = 1570000;
   packet=1000;                % size of each packet
   s1OutpuBuffer = 2000;       % Tx buffer length
   s2InputBuffer = 2000;       % Rx buffer length
@@ -36,6 +61,9 @@ function [DataArray, qrs, RRIntervalArray] = start(ecg_data, Fs, DataArray, qrs,
   qrswindow=2*DownsampleFs;   % A sufficient amount of data (2 seconds) in order to check for QRS
   PowStep=DownsampleFs/10;    % The window in which we check for possible QRS complexes by 
                               % computing the power of the signal. It should be 100ms
+  fiveMinWindowLength = DownsampleFs*60*5;
+  fiveMeanWindowIndex = 1;
+  fiveMinWindowCnt = 1;
 
   disp('Opening RS232 ports . . . . . ');
   s1 = serial('COM3','BaudRate',115200, 'OutputBufferSize', s1OutpuBuffer);
@@ -67,31 +95,40 @@ function [DataArray, qrs, RRIntervalArray] = start(ecg_data, Fs, DataArray, qrs,
   title('Real Time Data','FontSize',12,...
     'Color',[0.8516    0.6445    0.1250]);
   %% Start sending data
+  times = 1;
   cnt = 0;
   disptic=tic;
   while Nc - cnt > 0
-      if ~s1.BytesToOutput
-        tic;
-        if Nc - cnt >= packet
-          fwrite(s1,ecg_data(cnt+1:cnt+packet),'int16');
-        else
-          disp('here')
-          fwrite(s1,ecg_data(cnt+1:Nc),'int16');
-        end
-        cnt = s1.ValuesSent; 
-        %while toc<pdelay
-        %end
+    if times > 10
+      break;
+    end
+    if ~s1.BytesToOutput
+      tic;
+      if Nc - cnt >= packet
+        fwrite(s1,ecg_data(cnt+1:cnt+packet),'int16');
+      else
+        fwrite(s1,ecg_data(cnt+1:Nc),'int16');
       end
-      if toc(disptic)>disptime
-        if length(DataArray)<=10*DownsampleFs
-          set(plotHandle,'YData',DataArray); % draw all
-        else
-          set(plotHandle,'YData',DataArray(end-10*DownsampleFs +1:end)); % draw last 10 seconds
-        end
-        snapnow;
-        disptic=tic;
+      cnt = cnt + packet;
+      
+      if cnt == Nc
+        cnt = 0
+        times = times + 1
       end
+      %while toc<pdelay
+      %end
+    end
+    if toc(disptic)>disptime
+      if length(DataArray)<=10*DownsampleFs
+        set(plotHandle,'YData',DataArray); % draw all
+      else
+        set(plotHandle,'YData',DataArray(end-10*DownsampleFs +1:end)); % draw last 10 seconds
+      end
+      snapnow;
+      disptic=tic;
+    end
   end
+
   %% Close ports, End application
   pause(5);
   disp(' ');
@@ -114,7 +151,7 @@ function [DataArray, qrs, RRIntervalArray] = start(ecg_data, Fs, DataArray, qrs,
     DataArray = [DataArray ReadBuffer]; % Append received values to previously received data
     fprintf('\nCharacters received: %d\n', src.ValuesReceived);
     
-    if length(DataArray) < qrswindow % We need at least 2 seconds of information to run pan_tomkins
+    if length(DataArray) < 1.2*qrswindow % We need at least 2 seconds of information to run pan_tomkins
       return
     end
     
@@ -128,7 +165,14 @@ function [DataArray, qrs, RRIntervalArray] = start(ecg_data, Fs, DataArray, qrs,
       end
       
       if currentDataIndex - fiveMinWindowCnt*fiveMinWindowLength >= 0
+        FiveMinsMean=mean(RRIntervalArray(fiveMeanWindowIndex:end));
+        FiveMinsMeanArray=[FiveMinsMeanArray FiveMinsMean];
         
+        FiveMinsDeviation=std(RRIntervalArray(fiveMeanWindowIndex:end));
+        FiveMinsDeviationArray=[FiveMinsDeviationArray FiveMinsDeviation];
+        
+        fiveMeanWindowIndex = length(RRIntervalArray) + 1;
+        fiveMinWindowCnt = fiveMinWindowCnt + 1;
       end
     end
     
