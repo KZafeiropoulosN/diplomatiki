@@ -13,6 +13,8 @@
 % data values per second.
 % In each write operation we send 1000 data.
 
+% Values are sent in port s1 and received by port s2.
+
 %%
 clc;
 clear all;
@@ -20,21 +22,21 @@ close all;
 delete(instrfind);
 disp('Starting the Application . . . . ');
 
-ecg_data=importdata('ecg_1.txt');
+ecg_data = importdata('ecg_1.txt'); 
 Fs = 5000;
-ReceivedData = [];
-qrs = [];
-RRIntervalArray = [];
-FiveMinsMeanArray = [];
-FiveMinsDeviationArray = [];
-SuccessiveIntervalArray = [];
-NN50 = 0;                         % The number of RR intervals differing by > 50ms from the preceding interval
+ReceivedData = [];                % Array that contains the received data downsampled to 500hz.
+qrs = [];                         % Array that contains the indexes of the qrs complex in the ReceivedData array.
+RRIntervalArray = [];             % Array that contains the time difference (RRInterval) between each qrs complex and its successive qrs complex in seconds.
+FiveMinsMeanArray = [];           % Array that contains the mean values of the RRIntervals for all five minute segments of the signal.
+FiveMinsDeviationArray = [];      % Array that contains the standard diviation values of the RRIntervals for all five minute segments of the signal.
+SuccessiveIntervalArray = [];     % Array that contains the difference betwen each RRInterval and its successive RRInterval.
+NN50 = 0;                         % The number of RR intervals differing by > 50ms from the preceding interval.
 [ReceivedData, qrs, RRIntervalArray, FiveMinsMeanArray, FiveMinsDeviationArray] = start(...
   ecg_data, Fs, ReceivedData, qrs, RRIntervalArray, FiveMinsMeanArray, FiveMinsDeviationArray);
 
 for i=2:1:length(RRIntervalArray)
-  SuccessiveInterval=RRIntervalArray(i)-RRIntervalArray(i-1);
-  SuccessiveIntervalArray=[SuccessiveIntervalArray SuccessiveInterval];
+  SuccessiveInterval = RRIntervalArray(i) - RRIntervalArray(i - 1);
+  SuccessiveIntervalArray = [SuccessiveIntervalArray SuccessiveInterval];
   
   if abs(SuccessiveInterval)*1000 > 50
     NN50 = NN50 + 1;
@@ -49,22 +51,24 @@ pNN50 = (NN50/length(RRIntervalArray))*100;      % The perventage of RR interval
 
 function [DataArray, qrs, RRIntervalArray, FiveMinsMeanArray, FiveMinsDeviationArray] = start(...
   ecg_data, Fs, DataArray, qrs, RRIntervalArray, FiveMinsMeanArray, FiveMinsDeviationArray)
-  %% Initialise variables and ports
+  %% Initialise variables
   %Nc=length(ecg_data);       % amount of character to send
   Nc = 1570000;
-  packet=1000;                % size of each packet
+  packet = 1000;              % size of each packet
   s1OutpuBuffer = 2000;       % Tx buffer length
   s2InputBuffer = 2000;       % Rx buffer length
-  disptime=0.1;               % Time interval between displaying in graph
+  disptime = 0.1;             % Time interval between displaying in graph in seconds
   DownsampleFs = 500;         % We are downsampling data to that frequency
                               % before sending them to pan_tomkins
-  qrswindow=2*DownsampleFs;   % A sufficient amount of data (2 seconds) in order to check for QRS
-  PowStep=DownsampleFs/10;    % The window in which we check for possible QRS complexes by 
-                              % computing the power of the signal. It should be 100ms
-  fiveMinWindowLength = DownsampleFs*60*5;
-  fiveMeanWindowIndex = 1;
-  fiveMinWindowCnt = 1;
+  qrswindow = 2*DownsampleFs; % A sufficient amount of data (2 seconds) in order to check for QRS
+  PowStep = DownsampleFs/10;  % The window in which we check for possible QRS complexes by 
+                              % computing the power of the signal. It should be 100ms.
 
+  fiveMinWindowLength = DownsampleFs*60*5; % The length of a five minute segment measured in data samples
+  fiveMeanWindowIndex = 1;                 % The index where the previous five minute segment ends.
+  fiveMinWindowCnt = 1;                    % Counter of five minute segments
+  
+  %% Open ports
   disp('Opening RS232 ports . . . . . ');
   s1 = serial('COM3','BaudRate',115200, 'OutputBufferSize', s1OutpuBuffer);
   s2 = serial('COM4','BaudRate',115200,'InputBufferSize', s2InputBuffer);
@@ -112,8 +116,8 @@ function [DataArray, qrs, RRIntervalArray, FiveMinsMeanArray, FiveMinsDeviationA
       cnt = cnt + packet;
       
       if cnt == Nc
-        cnt = 0
-        times = times + 1
+        cnt = 0;
+        times = times + 1;
       end
       %while toc<pdelay
       %end
@@ -141,7 +145,6 @@ function [DataArray, qrs, RRIntervalArray, FiveMinsMeanArray, FiveMinsDeviationA
   disp(' ');
   %% Callback to receive and process data
   function onBytesAvailable(src, pan_tompkin, DownsampleFs, qrswindow, PowStep)
-    % Just to be sure
     if ~src.BytesAvailable
       return
     end
